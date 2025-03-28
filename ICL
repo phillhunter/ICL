@@ -1,0 +1,91 @@
+import os
+import sqlite3
+import requests
+from jinja2 import Template
+
+
+# Database setup
+def setup_database():
+  conn = sqlite3.connect('data.db')
+  cursor = conn.cursor()
+  cursor.execute('''
+    CREATE TABLE IF NOT EXISTS files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      content TEXT
+    )
+  ''')
+  conn.commit()
+  conn.close()
+
+
+# File handling using C++
+def write_file_with_cpp(filename, content):
+  cpp_code = f"""
+  #include <fstream>
+  #include <string>
+  int main() {{
+    std::ofstream file("{filename}");
+    if (file.is_open()) {{
+      file << "{content}";
+      file.close();
+    }}
+    return 0;
+  }}
+  """
+  with open("file_writer.cpp", "w") as cpp_file:
+    cpp_file.write(cpp_code)
+  os.system("g++ file_writer.cpp -o file_writer && ./file_writer")
+
+
+# Template processing
+def process_template(template_str, context):
+  template = Template(template_str)
+  return template.render(context)
+
+
+# Kanban integration with Planka
+def create_task_in_planka(board_id, column_id, task_name, description, token):
+  url = f"https://planka.example.com/api/v1/boards/{board_id}/columns/{column_id}/tasks"
+  headers = {
+    "Authorization": f"Bearer {token}",
+    "Content-Type": "application/json"
+  }
+  payload = {
+    "name": task_name,
+    "description": description
+  }
+  response = requests.post(url, json=payload, headers=headers)
+  return response.json()
+
+
+# Main program
+if __name__ == "__main__":
+  setup_database()
+
+  # Example: Write a file using C++
+  filename = "example.txt"
+  content = "Hello, this is a test file."
+  write_file_with_cpp(filename, content)
+
+  # Example: Save file info to database
+  conn = sqlite3.connect('data.db')
+  cursor = conn.cursor()
+  cursor.execute("INSERT INTO files (name, content) VALUES (?, ?)", (filename, content))
+  conn.commit()
+  conn.close()
+
+  # Example: Process a template
+  template_str = "File {{ name }} contains: {{ content }}"
+  context = {"name": filename, "content": content}
+  rendered = process_template(template_str, context)
+  print(rendered)
+
+  # Example: Create a task in Planka
+  board_id = "your_board_id"
+  column_id = "your_column_id"
+  task_name = "New Task"
+  description = "This is a task created from the program."
+  token = "your_planka_api_token"
+  response = create_task_in_planka(board_id, column_id, task_name, description, token)
+  print(response)
